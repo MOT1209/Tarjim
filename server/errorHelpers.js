@@ -59,6 +59,13 @@ const ERROR_STATUS = {
   // ── TTS ──
   'tts-failed': 502,
   'text-too-long': 413,
+
+  // ── وكلاء (routes-agents) ──
+  'invalid-kind': 400,
+  'agent-not-found': 404,
+  'squad-not-found': 404,
+  'workflow-not-found': 404,
+  'invalid-request': 400,
 };
 
 // ===== إزالة مفاتيح API من النصوص قبل إرسالها للعميل =====

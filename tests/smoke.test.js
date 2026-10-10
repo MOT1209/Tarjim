@@ -56,6 +56,7 @@ const CRITICAL = [
   ['GET', '/api/stats/quality'],
   ['GET', '/api/stats/cost'],
   ['PATCH', '/api/dub/projects/p-test/segments/0'],
+  ['POST', '/api/agents/run'], // ← الموجة 1: بوابة تشغيل الوكلاء
 ];
 
 async function hit(method, route) {

@@ -25,7 +25,11 @@ class Orchestrator {
     const agent = AGENTS[id];
     if (!agent) throw new Error(`وكيل غير معروف: ${idOrLegacy}`);
 
-    const runId = this._runId(`agent_${id.replace(/[:.]/g, '_')}`);
+    // runId يُحترم إن جاء في السياق (سير العمل يمنحه لموحّد تقارير موجته) —
+    // وإلا يُسكّ runId خاصًا بالوكيل كما كان دائمًا
+    const runId = typeof context.runId === 'string' && context.runId.trim()
+      ? context.runId
+      : this._runId(`agent_${id.replace(/[:.]/g, '_')}`);
     const subs = (agent.subagents || []).map((sid) => AGENTS[sid]).filter(Boolean);
 
     console.log(`\n🔧 ${agent.icon} ${agent.nameAr} (${agent.id}) — فرقة ${agent.squad}`);
@@ -41,7 +45,9 @@ class Orchestrator {
     const squad = SQUADS[squadId];
     if (!squad) throw new Error(`فرقة غير معروفة: ${squadId}`);
 
-    const runId = this._runId(`squad_${squadId}`);
+    const runId = typeof context.runId === 'string' && context.runId.trim()
+      ? context.runId
+      : this._runId(`squad_${squadId}`);
     const leaders = squad.leaders.map((id) => AGENTS[id]).filter(Boolean);
 
     console.log(`\n${'═'.repeat(60)}`);
@@ -75,7 +81,15 @@ class Orchestrator {
     const workflow = WORKFLOWS[workflowId];
     if (!workflow) throw new Error(`سير عمل غير معروف: ${workflowId}`);
 
-    const runId = this._runId(`wf_${workflowId}`);
+    // runId يُسكّ مرة واحدة هنا ويُمرَّر لكل وكيل/فرقة في الموجات (مُعزَّزًا
+    // بالسياق) — كان كل وكيل يسكّ runId خاصًا به فتتشتت التقارير في مجلدات
+    // specs/agents/<sub-runId>/ ويبقى مجلد سير العمل فارغًا. الآن كل التقارير
+    // تذهب إلى specs/agents/<runId>/ الواحد.
+    const runId = typeof context.runId === 'string' && context.runId.trim()
+      ? context.runId
+      : this._runId(`wf_${workflowId}`);
+    // سياق موحّد لكل الموجات: يحمل runId نفسه فوق أي خصائص أخرى أرسلها المتصل
+    const wfContext = { ...context, runId };
     console.log(`\n${'═'.repeat(60)}`);
     console.log(`🚀 سير العمل: ${workflow.name} (${workflowId})`);
     console.log(`${'═'.repeat(60)}`);
@@ -90,16 +104,16 @@ class Orchestrator {
       let waveResult;
       if (wave.squads) {
         // موجة فرق: تُشغَّل بالتوازي أو تسلسليًا حسب mode
-        const runner = (sid) => (wave.mode === 'parallel' ? this.runSquad(sid, context) : this.runSquad(sid, context).then((r) => (console.log('—'), r)));
+        const runner = (sid) => (wave.mode === 'parallel' ? this.runSquad(sid, wfContext) : this.runSquad(sid, wfContext).then((r) => (console.log('—'), r)));
         waveResult = wave.mode === 'parallel'
           ? await Promise.allSettled(wave.agents.map(runner))
-          : (await wave.agents.reduce(async (acc, sid) => [...await acc, await this.runSquad(sid, context)], []));
+          : (await wave.agents.reduce(async (acc, sid) => [...await acc, await this.runSquad(sid, wfContext)], []));
       } else {
         // موجة وكلاء (معرّفات قديمة أو جديدة) — تُحوَّل تلقائيًا
         const ids = wave.agents.map((a) => resolveAgentId(a)).filter(Boolean);
         waveResult = wave.mode === 'parallel'
-          ? await Promise.allSettled(ids.map((id) => this.runAgent(id, context)))
-          : (await ids.reduce(async (acc, id) => [...await acc, await this.runAgent(id, context)], []));
+          ? await Promise.allSettled(ids.map((id) => this.runAgent(id, wfContext)))
+          : (await ids.reduce(async (acc, id) => [...await acc, await this.runAgent(id, wfContext)], []));
       }
       waveResults.push(waveResult);
     }

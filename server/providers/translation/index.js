@@ -1,4 +1,4 @@
-// server/providers/translation/index.js — المزوّدون المدمجون بترتيب الأولوية
+// server/providers/translation/index.js — المزوّدون المدمجين بترتيب الأولوية
 //
 // الترتيب هنا **هو** السلسلة الافتراضية حين لا يفرض الطلب ولا PROVIDER_ORDER
 // ترتيبًا آخر: الأسرع والمجاني بلا مفتاح أولاً، ثم ما يحتاج مفتاحًا.
@@ -10,4 +10,5 @@ module.exports = [
   require('./gemini'),
   require('./deepl'),
   require('./zen'),
+  require('./hymt2'),
 ];

@@ -12,6 +12,7 @@
     { "name": "public", "description": "نقاط عامة — ترجمة ولغات ومزوّدون" },
     { "name": "media", "description": "فيديو ودبلجة وOCR ونطق" },
     { "name": "jobs", "description": "طابور الوظائف الثقيلة" },
+    { "name": "agents", "description": "نظام الوكلاء — تشغيل وكيل/فرقة/سير عمل ومتابعته" },
     { "name": "projects", "description": "مشاريع الدبلجة وأصولها" },
     { "name": "admin", "description": "نقاط محمية بـ x-admin-token" }
   ],
@@ -95,6 +96,25 @@
           "progress": { "type": "number", "minimum": 0, "maximum": 100 },
           "result": { "type": "object", "additionalProperties": true },
           "error": { "type": "string" }
+        }
+      },
+      "RunRequest": {
+        "type": "object",
+        "required": ["kind", "id"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["agent", "squad", "workflow"], "description": "فئة التشغيل" },
+          "id": { "type": "string", "examples": ["S5:T1", "S5", "wf_all"], "description": "معرّف الوكيل/الفرقة/سير العمل" },
+          "context": { "type": "object", "additionalProperties": true, "description": "سياق التشغيل (اختياري)" },
+          "projectId": { "type": "string", "description": "ربط التشغيل بمشروع لأغراض الملكية (اختياري)" }
+        }
+      },
+      "RunResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": { "type": "string" },
+          "status": { "type": "string" },
+          "statusUrl": { "type": "string" },
+          "streamUrl": { "type": "string" }
         }
       }
     },
@@ -905,6 +925,55 @@
         "responses": {
           "200": { "description": "{ available: false } إن لم يُشغَّل القياس بعد" },
           "401": { "description": "بلا رمز إدارة", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/agents/run": {
+      "post": {
+        "tags": ["agents"],
+        "summary": "تشغيل وكيل أو فرقة أو سير عمل — يعيد وظيفة لمتابعتها",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RunRequest" } } }
+        },
+        "responses": {
+          "202": {
+            "description": "قُبل التشغيل — تابع الحالة عبر statusUrl أو streamUrl",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RunResponse" } } }
+          },
+          "400": { "description": "طلب غير صالح (نوع/معرّف مفقودان أو سياق خاطئ)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "description": "رفض السياسة: نوع أو وكيل أو فرقة أو سير عمل غير موجود", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "خطأ في الخادم أو صيغة وظيفة غير معروفة", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/agents/runs": {
+      "get": {
+        "tags": ["agents"],
+        "summary": "سجلّ تشغيلات الوكلاء (للأدمن)",
+        "security": [{ "AdminToken": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/AdminHeader" },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 20, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "آخر التشغيلات — الأحدث أولًا" },
+          "401": { "description": "بلا رمز إدارة", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        }
+      }
+    },
+    "/api/agents/runs/{jobId}": {
+      "delete": {
+        "tags": ["agents"],
+        "summary": "إلغاء تشغيل قيد التنفيذ",
+        "parameters": [
+          { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "$ref": "#/components/parameters/AdminHeader" },
+          { "$ref": "#/components/parameters/ProjectHeader" }
+        ],
+        "responses": {
+          "200": { "description": "أُلغي بنجاح", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RunResponse" } } } },
+          "404": { "description": "وظيفة غير موجودة أو بلا صلاحية", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
         }
       }
     }
